@@ -37,7 +37,7 @@ from app.stt.sarvam_stt import SarvamSTT
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("hhgoa_rag")
 
-app = FastAPI(title="HH Goa 2026 — Ask Anything (Voice RAG)")
+app = FastAPI(title="HH Goa 2026 — AAWAZ (Voice RAG)")
 
 app.add_middleware(
     CORSMiddleware,
