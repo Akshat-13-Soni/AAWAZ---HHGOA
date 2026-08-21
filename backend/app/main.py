@@ -8,7 +8,7 @@ Run locally:
     export GROQ_API_KEY=...
     uvicorn app.main:app --reload --port 8000
 
-Then point frontend/index.html's API_ENDPOINT at https://aawaz-hhgoa-production.up.railway.app/api/query
+Then point frontend/index.html's API_ENDPOINT at http://localhost:8000/api/query
 """
 from __future__ import annotations
 
