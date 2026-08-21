@@ -30,7 +30,7 @@ from app.guardrails.groundedness import GroundednessChecker
 from app.guardrails.input_gate import InputGate, compute_corpus_centroid
 from app.harness.orchestrator import RagOrchestrator
 from app.harness.schemas import QueryRequest, QueryResponse
-from app.retrieval.embedder import Embedder
+from app.retrieval.embedder import Embedder, HashEmbedder
 from app.retrieval.hybrid_retriever import HybridRetriever
 from app.stt.sarvam_stt import SarvamSTT
 
@@ -56,6 +56,7 @@ orchestrator: RagOrchestrator | None = None
 # only after confirming latency numbers still hold with headroom to spare.
 MAX_PASSAGES = int(os.environ.get("MAX_PASSAGES", "2000"))
 CORPUS_SOURCE = os.environ.get("CORPUS_SOURCE", "msmarco").lower()
+EMBEDDER_MODE = os.environ.get("EMBEDDER_MODE", "sentence_transformer").lower()
 
 
 @app.on_event("startup")
@@ -71,8 +72,14 @@ def build_pipeline():
         raise ValueError("CORPUS_SOURCE must be 'preview' or 'msmarco'")
     logger.info(f"Loaded {len(passages)} passages.")
 
-    logger.info("Loading embedder (bge-small)...")
-    embedder = Embedder("intfloat/multilingual-e5-small")
+    if EMBEDDER_MODE == "hash":
+        logger.info("Loading lightweight hash embedder for the demo...")
+        embedder = HashEmbedder()
+    elif EMBEDDER_MODE == "sentence_transformer":
+        logger.info("Loading embedder (multilingual-e5-small)...")
+        embedder = Embedder("intfloat/multilingual-e5-small")
+    else:
+        raise ValueError("EMBEDDER_MODE must be 'hash' or 'sentence_transformer'")
 
     logger.info("Chunking with all 4 strategies...")
     chunks = []
