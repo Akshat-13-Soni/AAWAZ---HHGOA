@@ -31,6 +31,7 @@ known-correct passages).
 from __future__ import annotations
 
 import hashlib
+from itertools import islice
 from dataclasses import dataclass, field
 from typing import Iterator, Optional
 
@@ -102,13 +103,16 @@ def load_msmarco_xi(
 
     for lang_idx, language in enumerate(languages):
         url = _validation_file_url(language)
-        ds = load_dataset("parquet", data_files=url, split="train")
-        if max_records:
-            ds = ds.select(range(min(max_records, len(ds))))
+        # Streaming avoids downloading and converting the entire ~462 MB
+        # validation parquet file before applying max_records. This is
+        # essential for constrained deployment environments, where the
+        # in-memory conversion can cause the service to restart during boot.
+        ds = load_dataset("parquet", data_files=url, split="train", streaming=True)
+        rows = islice(ds, max_records) if max_records is not None else ds
 
         include_english_this_pass = (lang_idx == 0)
 
-        for row in ds:
+        for row in rows:
             query_id = row.get("query_id")
             query_local = row.get("query")
             query_en = row.get("Eng_Query")
