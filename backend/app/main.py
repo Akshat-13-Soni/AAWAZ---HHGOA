@@ -21,7 +21,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
-from app.dataset import load_msmarco_xi
+from app.dataset import load_msmarco_xi, load_preview_corpus
 from app.chunking import (
     FixedSizeChunker, SemanticChunker, SentenceWindowChunker, MetadataAwareChunker,
 )
@@ -55,13 +55,20 @@ orchestrator: RagOrchestrator | None = None
 # see PROGRESS.md WARNING re: full dataset size / indexing time. Raise this
 # only after confirming latency numbers still hold with headroom to spare.
 MAX_PASSAGES = int(os.environ.get("MAX_PASSAGES", "2000"))
+CORPUS_SOURCE = os.environ.get("CORPUS_SOURCE", "msmarco").lower()
 
 
 @app.on_event("startup")
 def build_pipeline():
     global orchestrator
-    logger.info(f"Loading up to {MAX_PASSAGES} passages from MSMARCO-XI...")
-    passages = list(load_msmarco_xi(max_records=MAX_PASSAGES))
+    if CORPUS_SOURCE == "preview":
+        logger.info(f"Loading up to {MAX_PASSAGES} passages from the preview corpus...")
+        passages = list(load_preview_corpus(max_records=MAX_PASSAGES))
+    elif CORPUS_SOURCE == "msmarco":
+        logger.info(f"Loading up to {MAX_PASSAGES} passages from MSMARCO-XI...")
+        passages = list(load_msmarco_xi(max_records=MAX_PASSAGES))
+    else:
+        raise ValueError("CORPUS_SOURCE must be 'preview' or 'msmarco'")
     logger.info(f"Loaded {len(passages)} passages.")
 
     logger.info("Loading embedder (bge-small)...")

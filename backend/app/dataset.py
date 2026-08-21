@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import hashlib
 from itertools import islice
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Iterator, Optional
 
@@ -45,6 +46,7 @@ _LANGUAGE_FILE_MAP = {
 }
 
 _VALIDATION_BASE_URL = "https://huggingface.co/datasets/ai4bharat/MSMARCO-XI/resolve/main/validation"
+_PREVIEW_CORPUS_PATH = Path(__file__).resolve().parent.parent / "passages_preview.txt"
 
 
 @dataclass
@@ -68,6 +70,41 @@ def _validation_file_url(language: str) -> str:
             f"Unknown language '{language}'. Choose from: {list(_LANGUAGE_FILE_MAP)}"
         )
     return f"{_VALIDATION_BASE_URL}/{_LANGUAGE_FILE_MAP[language]}.parquet"
+
+
+def load_preview_corpus(max_records: Optional[int] = None) -> Iterator[Passage]:
+    """Load the small checked-in corpus used for resource-constrained demos.
+
+    Unlike ``load_msmarco_xi``, this avoids importing the Hugging Face datasets
+    runtime or downloading a parquet shard at application startup. Each line
+    in ``passages_preview.txt`` is a previously exported MSMARCO-XI passage.
+    """
+    if not _PREVIEW_CORPUS_PATH.exists():
+        raise FileNotFoundError(f"Preview corpus missing: {_PREVIEW_CORPUS_PATH}")
+
+    emitted = 0
+    with _PREVIEW_CORPUS_PATH.open(encoding="utf-8") as preview_file:
+        for line_number, raw_line in enumerate(preview_file, start=1):
+            if max_records is not None and emitted >= max_records:
+                break
+
+            try:
+                _, tagged_text = raw_line.rstrip().split(". [", 1)
+                language, text = tagged_text.split("] ", 1)
+            except ValueError:
+                continue
+
+            text = text.strip()
+            if not text:
+                continue
+
+            yield Passage(
+                id=f"preview-{line_number}",
+                text=text,
+                language=language,
+                metadata={"source": "checked-in-preview-corpus"},
+            )
+            emitted += 1
 
 
 def load_msmarco_xi(
