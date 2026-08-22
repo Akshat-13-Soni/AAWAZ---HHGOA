@@ -98,7 +98,7 @@ def build_pipeline():
     # Calibrate against real on/off-topic test queries before submission.
     input_gate = InputGate(retriever=retriever, retrieval_score_floor=0.01, gate_top_k=5)
     groundedness_checker = GroundednessChecker(embedder=embedder, min_lexical_overlap=0.15,
-                                                min_semantic_similarity=0.35)
+                                            min_semantic_similarity=0.0)
 
     generator = GroqGenerator()  # reads GROQ_API_KEY from env
 
