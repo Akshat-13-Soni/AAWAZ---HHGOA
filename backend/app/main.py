@@ -27,7 +27,7 @@ from app.chunking import (
 )
 from app.generation.groq_generator import GroqGenerator
 from app.guardrails.groundedness import GroundednessChecker
-from app.guardrails.input_gate import InputGate, compute_corpus_centroid
+from app.guardrails.input_gate import InputGate
 from app.harness.orchestrator import RagOrchestrator
 from app.harness.schemas import QueryRequest, QueryResponse
 from app.retrieval.embedder import Embedder, HashEmbedder
@@ -94,13 +94,9 @@ def build_pipeline():
     retriever.index(chunks)
     logger.info(f"Indexed {len(retriever)} chunks.")
 
-    logger.info("Computing corpus centroid for the input gate...")
-    sample_texts = [c.text for c in chunks[:500]]
-    centroid = compute_corpus_centroid(embedder, sample_texts)
-
     # NOTE: these thresholds are UNTUNED defaults — see PROGRESS.md step 7.
     # Calibrate against real on/off-topic test queries before submission.
-    input_gate = InputGate(embedder=embedder, corpus_centroid=centroid, off_topic_threshold=0.15)
+    input_gate = InputGate(retriever=retriever, retrieval_score_floor=0.01, gate_top_k=5)
     groundedness_checker = GroundednessChecker(embedder=embedder, min_lexical_overlap=0.15,
                                                 min_semantic_similarity=0.35)
 
@@ -128,6 +124,18 @@ def build_pipeline():
 def health():
     return {"status": "ok", "pipeline_ready": orchestrator is not None}
 
+@app.get("/debug/retrieval-score")
+def debug_retrieval_score(q: str):
+    if orchestrator is None:
+        return {"error": "pipeline not ready yet"}
+    gate = orchestrator.input_gate
+    retrieved = gate.retriever.search(q, top_k=gate.gate_top_k)
+    top_score = retrieved[0].rrf_score if retrieved else 0.0
+    return {
+        "query": q,
+        "top_rrf_score": round(top_score, 4),
+        "current_floor": gate.retrieval_score_floor,
+    }
 
 @app.post("/api/query", response_model=QueryResponse)
 def query(request: QueryRequest) -> QueryResponse:

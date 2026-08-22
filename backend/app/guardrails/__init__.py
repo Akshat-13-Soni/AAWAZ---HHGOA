@@ -1,4 +1,4 @@
-from app.guardrails.input_gate import InputGate, GateVerdict, GateResult, compute_corpus_centroid
+from app.guardrails.input_gate import InputGate, GateVerdict, GateResult
 from app.guardrails.groundedness import GroundednessChecker, GroundednessResult
 
 __all__ = [

@@ -59,23 +59,20 @@ class RagOrchestrator:
         if not query_text:
             return self._refuse(timings, t_start, "no query text available (empty audio transcription or no input)")
 
-        # --- Stage 2: input gate ---
+        # --- Stage 2: input gate (now runs a real retrieval-floor check) ---
         with self._timed(timings, "input_gate"):
             gate_result = self.input_gate.check(query_text)
         if gate_result.verdict != GateVerdict.ON_TOPIC:
             return self._refuse(timings, t_start, f"input gate: {gate_result.verdict.value} ({gate_result.reason})",
-                                 transcribed_query=query_text)
+                                transcribed_query=query_text)
 
-        # --- Stage 3: retrieval ---
+        # --- Stage 3: retrieval — reuse what the gate already fetched ---
         with self._timed(timings, "retrieval"):
-            try:
-                retrieved = self.retriever.search(query_text, top_k=self.top_k)
-            except Exception as e:
-                return self._refuse(timings, t_start, f"retrieval failed: {e}", transcribed_query=query_text)
+            retrieved = gate_result.retrieved
 
         if not retrieved:
             return self._refuse(timings, t_start, "no relevant context found in corpus",
-                                 transcribed_query=query_text)
+                                transcribed_query=query_text)
 
         context_texts = [r.chunk.text for r in retrieved]
 
